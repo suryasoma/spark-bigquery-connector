@@ -16,25 +16,16 @@
 package com.google.cloud.spark.bigquery.integration;
 
 import com.google.cloud.spark.bigquery.SparkBigQueryConfig;
-import java.util.Arrays;
-import java.util.Collection;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.Ignore;
 
-@RunWith(Parameterized.class)
-public class Spark24WriteIntegrationTest extends WriteIntegrationTestBase {
+// temporary ignore
+@Ignore
+public class Spark31DirectWriteIntegrationTest extends WriteIntegrationTestBase {
 
-  @Parameterized.Parameters(name = "{0}")
-  public static Collection<SparkBigQueryConfig.WriteMethod[]> formats() {
-    return Arrays.asList(
-        new SparkBigQueryConfig.WriteMethod[][] {
-          {SparkBigQueryConfig.WriteMethod.DIRECT}, {SparkBigQueryConfig.WriteMethod.INDIRECT}
-        });
-  }
-
-  public Spark24WriteIntegrationTest(SparkBigQueryConfig.WriteMethod writeMethod) {
-    super(writeMethod);
+  public Spark31DirectWriteIntegrationTest() {
+    super(SparkBigQueryConfig.WriteMethod.DIRECT);
   }
 
   // tests from superclass
+
 }
