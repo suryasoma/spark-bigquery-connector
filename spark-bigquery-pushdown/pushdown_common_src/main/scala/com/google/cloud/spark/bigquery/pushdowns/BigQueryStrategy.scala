@@ -101,6 +101,20 @@ class BigQueryStrategy(expressionConverter: SparkExpressionConverter, expression
     Some(sourceQuery.bigQueryRDDFactory)
   }
 
+  /** Removes project plan with no fields and returns the child, to continue the generation of query.
+   * Spark is generating an empty project plan when the query has count(*)
+   * Found this issue when executing query-9 of TPC-DS
+   *
+   * @param plan
+   * @return
+   */
+  def cleanUpLogicalPlan(plan: LogicalPlan): LogicalPlan = {
+    plan match {
+      case Project(Nil, child) => child
+      case _ => plan
+    }
+  }
+
   /** Attempts to generate the query from the LogicalPlan by pattern matching recursively.
    * The queries are constructed from the bottom up, but the validation of
    * supported nodes for translation happens on the way down.
@@ -110,13 +124,14 @@ class BigQueryStrategy(expressionConverter: SparkExpressionConverter, expression
    *         unsupported node type.
    */
   def generateQueryFromPlan(plan: LogicalPlan): Option[BigQuerySQLQuery] = {
-    plan match {
+    val updatedPlan = cleanUpLogicalPlan(plan)
+    updatedPlan match {
       case l@LogicalRelation(bqRelation: DirectBigQueryRelation, _, _, _) =>
         Some(SourceQuery(expressionConverter, expressionFactory, bqRelation.getBigQueryRDDFactory, bqRelation.getTableName, l.output, alias.next))
 
       case UnaryOperationExtractor(child) =>
         generateQueryFromPlan(child) map { subQuery =>
-          plan match {
+          updatedPlan match {
             case Filter(condition, _) =>
               FilterQuery(expressionConverter, expressionFactory, Seq(condition), subQuery, alias.next)
 
@@ -145,7 +160,7 @@ class BigQueryStrategy(expressionConverter: SparkExpressionConverter, expression
       case BinaryOperationExtractor(left, right) =>
         generateQueryFromPlan(left).flatMap { l =>
           generateQueryFromPlan(right) map { r =>
-            plan match {
+            updatedPlan match {
               case JoinExtractor(joinType, condition) =>
                 joinType match {
                   case Inner | LeftOuter | RightOuter | FullOuter =>
@@ -162,7 +177,7 @@ class BigQueryStrategy(expressionConverter: SparkExpressionConverter, expression
 
       case _ =>
         throw new BigQueryPushdownUnsupportedException(
-          s"Query pushdown failed in generateQueries for node ${plan.nodeName} in ${plan.getClass.getName}"
+          s"Query pushdown failed in generateQueries for node ${updatedPlan.nodeName} in ${updatedPlan.getClass.getName}"
         )
     }
   }
